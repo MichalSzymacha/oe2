@@ -1,5 +1,4 @@
 from gui.app import App
-import numpy as np
 
 def main():
     app = App()
@@ -7,5 +6,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # chromosome = np.random.random()
-    # print(chromosome)

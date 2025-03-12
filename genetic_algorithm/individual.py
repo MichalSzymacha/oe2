@@ -6,13 +6,14 @@ class Individual:
     z binarną reprezentacją chromosomu.
     """
 
-    def __init__(self, chromosome: np.ndarray, precision: float, var_bounds: list):
+    def __init__(self, m: int, precision: float, var_bounds: list):
         """
         :param chromosome: numpy array z wartościami 0/1 (binarna reprezentacja)
         :param precision: dokładność zakodowania zmiennej (np. liczba bitów na zmienną)
         :param var_bounds: lista krotek (min_val, max_val) dla każdej zmiennej
+        :param fitness: wartość funkcji oceny dla osobnika
         """
-        self.chromosome = chromosome
+        self.chromosome = np.random.choice([0, 1], size=m)
         self.precision = precision
         self.var_bounds = var_bounds
         self.fitness = None  # wartość funkcji (lub ocena)

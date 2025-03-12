@@ -7,11 +7,13 @@ from genetic_algorithm.crossover import (crossover_one_point, crossover_two_poin
                                         crossover_uniform, crossover_grain)
 from genetic_algorithm.mutation import (mutation_boundary, mutation_one_point, mutation_two_points)
 from genetic_algorithm.inversion import inversion
+import math
 
 
 class GAManager:
     def __init__(self, 
-                 var_bounds, 
+                 var_bounds,
+                 precision, 
                  bits_per_var,
                  pop_size,
                  epochs,
@@ -30,6 +32,7 @@ class GAManager:
         ...
         """
         self.var_bounds = var_bounds
+        self.precision = precision
         self.bits_per_var = bits_per_var
         self.pop_size = pop_size
         self.epochs = epochs
@@ -55,12 +58,20 @@ class GAManager:
         self.history_best = []
         self.history_mean = []
         self.history_std = []
+        
+        self.p = 0
+        local_precision = self.precision
+        while local_precision < 1.0:
+            local_precision *= 10
+            self.p += 1
 
     def _init_population(self):
         population = []
-        for _ in range(self.pop_size):
-            chromosome = np.random.randint(0, 2, self.chromosome_length)
-            ind = Individual(chromosome, precision=1.0, var_bounds=self.var_bounds)
+        num_of_steps = (self.var_bounds[1] - self.var_bounds[0]) * 10**self.p + 1
+        m = math.ceil(math.log2(num_of_steps))
+        for _ in range(self.pop_size):  
+            chromosome = np.random.choice([0, 1], size=m)
+            ind = Individual(num_of_steps, precision=self.p, var_bounds=self.var_bounds)
             population.append(ind)
         return population
 

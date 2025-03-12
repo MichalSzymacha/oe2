@@ -104,8 +104,9 @@ class App(tk.Tk):
         objective_function = get_function_by_name(function_name, num_vars)
 
         # Pobranie sugerowanych granic
-        bounds = get_suggested_bounds(function_name, num_vars)
+        bounds = (self.begin_range_var.get(), self.end_range_var.get())
         
+        precision = self.precision_var.get()
         pop_size = self.population_var.get()
         epochs = self.epochs_var.get()
         selection_method = self.selection_method_var.get()
@@ -121,6 +122,7 @@ class App(tk.Tk):
         # Uruchomienie algorytmu
         ga = GAManager(
             var_bounds=bounds,
+            precision = precision,
             bits_per_var=16,  # Stała wartość precyzji binarnej
             pop_size=pop_size,
             epochs=epochs,

@@ -1,5 +1,7 @@
 import random
 from typing import Callable, List, Tuple
+from Population import Population
+from Individual import Individual
 
 class GeneticAlgorithm:
     def __init__(
@@ -18,7 +20,7 @@ class GeneticAlgorithm:
         mutation_prob: float,
         inversion_prob: float,
         elite_percentage: float,
-        objective_function: Callable,
+        objective_function: Callable[[List[float]], float],
         maximize: bool = True
     ):
         """
@@ -30,7 +32,7 @@ class GeneticAlgorithm:
         :param pop_size: rozmiar populacji
         :param epochs: liczba epok (iteracji)
         :param selection_method: metoda selekcji ("roulette", "tournament", "best",)
-        :param selection_percentage: procent osobników branych do selekcji najlepszych (w niektórych metodach)
+        :param selection_percentage: procent osobników branych do selekcji najlepszych i selekcji ruletkowej
         :param tournament_size: rozmiar turnieju (dla selekcji turniejowej)
         :param crossover_method: metoda krzyżowania ("one_point", "two_point", "uniform", "grain", ...)
         :param crossover_prob: prawdopodobieństwo krzyżowania
@@ -65,27 +67,28 @@ class GeneticAlgorithm:
 
         self.population = self.initialize_population()
 
+
     def initialize_population(self):
         """
         Inicjalizuje populację. Tutaj decydujemy, jak kodujemy zmienne (np. binarnie).
         Na przykład można zapisać 'chromosom' jako listę bitów lub liczb rzeczywistych.
         """
-        Tworzymy populacje z klasy population
+        return Population(self.var_bounds, self.precision, self.vars_number, self.pop_size)
 
-    def _evaluate(self, chromosome) -> float:
+    def _evaluate(self):
         """
         Oblicza wartość funkcji celu dla danego chromosomu i zwraca fitness.
         Jeśli maximize = True, to fitness może być bezpośrednio wynikiem objective_function.
         Jeśli maximize = False (czyli minimalizacja), to często liczymy fitness = 1 / (1 + f(x))
         lub stosujemy inną transformację, by móc używać podobnych mechanizmów selekcji.
         """
-        raw_value = self.objective_function(chromosome)
+        
         if self.maximize:
-            return raw_value
+            self.population.evaluate(self.objective_function)
         else:
-            # Jedna z popularnych transformacji do minimalizacji:
-            # unikamy dzielenia przez zero, stąd (abs(raw_value) + 1)
-            return 1.0 / (abs(raw_value) + 1.0)
+            self.population.evaluate(self.objective_function)
+            for inv in self.population.population:
+                inv.fitness = -inv.fitness
 
     def _selection(self) -> list:
         """
@@ -106,59 +109,32 @@ class GeneticAlgorithm:
         Przykładowa ruletka (prawdopodobieństwo proporcjonalne do fitness).
         Zwraca listę osobników (tyle, ile wynosi pop_size).
         """
-        # Suma fitnessów
-        total_fitness = sum(ind['fitness'] for ind in self.population)
-        new_population = []
-        
-        for _ in range(self.pop_size):
-            pick = random.uniform(0, total_fitness)
-            current = 0
-            for ind in self.population:
-                current += ind['fitness']
-                if current > pick:
-                    # Tworzymy kopię, żeby nie modyfikować oryginału
-                    new_population.append({
-                        'chromosome': ind['chromosome'][:],
-                        'fitness': ind['fitness']
-                    })
-                    break
+        self._evaluate()
+        fitnesses = [ind.fitness for ind in self.population.population]
+        total_fitness = sum(fitnesses)
+        probabilities = [f / total_fitness for f in fitnesses]
+        new_population = random.choices(self.population.population, weights=probabilities, k=int(self.pop_size*self.selection_percentage))
         return new_population
-
+    
     def _selection_tournament(self) -> list:
         """
         Przykładowa selekcja turniejowa. 
         Zwraca nową populację (kopie osobników).
         """
+        self._evaluate()
         new_population = []
-        for _ in range(self.pop_size):
-            # Losujemy turniej
-            tournament = random.sample(self.population, self.tournament_size)
-            # Wybieramy najlepszego (lub najgorszego, jeśli minimize – ale tu mamy fitness przetransformowane)
-            best = max(tournament, key=lambda ind: ind['fitness'])
-            new_population.append({
-                'chromosome': best['chromosome'][:],
-                'fitness': best['fitness']
-            })
+        for i in range(0, self.pop_size, self.tournament_size):
+            winner = max(self.population.population[i:i+self.tournament_size], key=lambda x: x.fitness)
+            new_population.append(winner)
         return new_population
-
+        
     def _selection_best(self) -> list:
         """
         Wybieramy pewien % najlepszych i z nich tworzymy nową populację (bądź dociągamy do pop_size).
         """
-        sorted_pop = sorted(self.population, key=lambda ind: ind['fitness'], reverse=True)
-        # Ile osobników bierzemy z top:
-        k = int(self.pop_size * self.selection_percentage)
-        best_part = sorted_pop[:k]
-
-        new_population = []
-        # Uzupełniamy populację wielokrotnie powielając najlepszych,
-        # lub dobieramy losowo spośród najlepszych (zależy od strategii).
-        while len(new_population) < self.pop_size:
-            ind = random.choice(best_part)
-            new_population.append({
-                'chromosome': ind['chromosome'][:],
-                'fitness': ind['fitness']
-            })
+        self._evaluate()
+        self.population.population.sort(key=lambda x: x.fitness, reverse=True)
+        new_population = self.population.population[:int(self.selection_percentage * self.pop_size)]
         return new_population
 
     def _crossover(self, parent1, parent2):
@@ -274,71 +250,27 @@ class GeneticAlgorithm:
         """
         Główna pętla – uruchamia algorytm na 'epochs' epok.
         """
-        # Krok 1: inicjalizacja populacji
-        self.initialize_population()
+        
+if __name__ == '__main__':
+    def func(x):
+        return x[0] + x[1]
 
-        # Główna pętla
-        for epoch in range(self.epochs):
-            # Selekcja
-            new_population = self._selection()
-
-            # Elityzm – zachowanie pewnego procenta najlepszych
-            elites = []
-            if self.elite_percentage > 0:
-                elite_count = max(1, int(self.pop_size * self.elite_percentage))
-                sorted_pop = sorted(self.population, key=lambda ind: ind['fitness'], reverse=True)
-                elites = sorted_pop[:elite_count]
-
-            # Krzyżowanie, mutacja, inwersja
-            next_pop = []
-            for i in range(0, self.pop_size, 2):
-                if i + 1 < self.pop_size:
-                    parent1 = new_population[i]
-                    parent2 = new_population[i+1]
-                else:
-                    # Nieparzysta liczba osobników, ostatni rodzic kopiuje się sam
-                    parent1 = new_population[i]
-                    parent2 = new_population[i]
-
-                # Krzyżowanie
-                child1_chrom = self._crossover(parent1['chromosome'], parent2['chromosome'])
-                child2_chrom = self._crossover(parent2['chromosome'], parent1['chromosome'])
-
-                # Mutacja i inwersja
-                self._mutation(child1_chrom)
-                self._mutation(child2_chrom)
-                self._inversion(child1_chrom)
-                self._inversion(child2_chrom)
-
-                # Obliczamy nowe fitnessy
-                child1_fit = self._evaluate(child1_chrom)
-                child2_fit = self._evaluate(child2_chrom)
-
-                next_pop.append({'chromosome': child1_chrom, 'fitness': child1_fit})
-                if len(next_pop) < self.pop_size:
-                    next_pop.append({'chromosome': child2_chrom, 'fitness': child2_fit})
-
-            # Dodaj elity
-            if elites:
-                # Zastępujemy najsłabszych w next_pop elitami lub łączymy i sortujemy
-                # Tutaj – prosta metoda: wstawiamy je i przycinamy do pop_size
-                next_pop.extend(elites)
-                # Sortujemy i bierzemy pop_size najlepszych (jeśli maximize)
-                next_pop = sorted(next_pop, key=lambda ind: ind['fitness'], reverse=True)[:self.pop_size]
-
-            # Aktualizujemy populację
-            self.population = next_pop
-
-            # Opcjonalnie: diagnostyka / print
-            best_ind = max(self.population, key=lambda ind: ind['fitness'])
-            print(f"Epoch {epoch+1}/{self.epochs} | Best fitness: {best_ind['fitness']}")
-
-        # Po zakończeniu zwracamy najlepszego osobnika
-        best_ind = max(self.population, key=lambda ind: ind['fitness'])
-        return best_ind
-
-    def get_best_individual(self):
-        """
-        Zwraca najlepszego osobnika z bieżącej populacji.
-        """
-        return max(self.population, key=lambda ind: ind['fitness'])
+    ga = GeneticAlgorithm(
+        var_bounds=(0, 7),
+        precision=3,
+        vars_number=2,
+        pop_size=10,
+        epochs=10,
+        selection_method="best",
+        selection_percentage=0.5,
+        tournament_size=3,
+        crossover_method="one_point",
+        crossover_prob=0.9,
+        mutation_method="one_point",
+        mutation_prob=0.1,
+        inversion_prob=0.01,
+        elite_percentage=0.1,
+        objective_function=func,
+        maximize=True
+    )
+    ga._selection_roulette()

@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import ttk
 import numpy as np
-from genetic_algorithm.ga_manager import GAManager
+import time
+from genetic_algorithm.GeneticAlgorithm import GeneticAlgorithm
 from functions.function_selector import get_function_by_name, get_suggested_bounds, FUNCTIONS_MAP
+from utils.plotter import plot_iterations, plot_mean_std
 
 class App(tk.Tk):
     def __init__(self):
@@ -44,7 +46,8 @@ class App(tk.Tk):
         # --- Wybór metody selekcji ---
         self.selection_method_var = tk.StringVar(value="roulette")
         self.create_dropdown("Selection method", ["roulette", "tournament", "best"], self.selection_method_var)
-
+        self.selection_percentage_var = tk.DoubleVar(value=0.5)
+        self.create_input_field("Selection percentage", self.selection_percentage_var)
         self.tournament_size_var = tk.IntVar(value=3)
         self.create_input_field("Tournament size", self.tournament_size_var)
 
@@ -110,6 +113,7 @@ class App(tk.Tk):
         pop_size = self.population_var.get()
         epochs = self.epochs_var.get()
         selection_method = self.selection_method_var.get()
+        selection_percentage = self.selection_percentage_var.get()
         crossover_method = self.crossover_method_var.get()
         mutation_method = self.mutation_method_var.get()
         crossover_prob = self.cross_prob_var.get()
@@ -120,13 +124,15 @@ class App(tk.Tk):
         tournament_size = self.tournament_size_var.get()
 
         # Uruchomienie algorytmu
-        ga = GAManager(
+        ga = GeneticAlgorithm(
             var_bounds=bounds,
             precision = precision,
-            bits_per_var=16,  # Stała wartość precyzji binarnej
+            vars_number=num_vars,
             pop_size=pop_size,
             epochs=epochs,
             selection_method=selection_method,
+            selection_percentage=selection_percentage,
+            tournament_size=tournament_size,
             crossover_method=crossover_method,
             crossover_prob=crossover_prob,
             mutation_method=mutation_method,
@@ -136,12 +142,13 @@ class App(tk.Tk):
             objective_function=objective_function,
             maximize=maximize
         )
-
-        elapsed_time = ga.run()
-        best_solution = ga.population[0].decode()  # Pobranie najlepszego rozwiązania
-
+        time_start = time.time()
+        best_solution = ga.run()
+        time_stop = time.time()
         # Wyświetlenie wyniku w GUI
-        self.result_label.config(text=f"Best solution: {best_solution}, Time: {elapsed_time:.2f}s")
+        self.result_label.config(text=f"Best solution: {best_solution} \n Time: {time_stop-time_start}s")
+        plot_iterations("wyniki.csv")
+        plot_mean_std("wyniki.csv")
 
 
 if __name__ == "__main__":

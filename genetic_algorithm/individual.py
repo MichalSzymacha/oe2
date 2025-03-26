@@ -1,45 +1,81 @@
+from typing import Tuple
 import numpy as np
+import numpy.typing as npt
+
+
+"""
+TODO:
+
+-dodanie strategii elitarnej
+algorytm genetyczny - zaimpelmentować samo wykonanie 
+"""
 
 class Individual:
-    """
-    Klasa reprezentująca pojedynczego osobnika w populacji
-    z binarną reprezentacją chromosomu.
-    """
+    def __init__(self, size : int, vars_number : int, genes : npt.NDArray[np.int32] = None):
+        self.size = size
+        self.vars_number = vars_number
+        self.genes_size = size * vars_number
+        self.fitness = None
+        if genes is not None:
+            self.genes = genes
+            if len(genes) != self.genes_size:
+                raise ValueError(f"Genes size should be {self.genes_size}, but got {len(genes)}")
+        else:
+            self.genes = np.random.choice([0, 1], size=self.genes_size)
 
-    def __init__(self, m: int, precision: float, var_bounds: list):
+    def mutate_one_point(self):
+            """
+            Mutacja pojedynczego bitu
+            """
+            i = np.random.randint(self.genes_size)
+            self.genes[i] = self.genes[i] ^ 1
+    
+    def mutate_two_point(self):
         """
-        :param chromosome: numpy array z wartościami 0/1 (binarna reprezentacja)
-        :param precision: dokładność zakodowania zmiennej (np. liczba bitów na zmienną)
-        :param var_bounds: lista krotek (min_val, max_val) dla każdej zmiennej
-        :param fitness: wartość funkcji oceny dla osobnika
+        Mutacja dwóch punktów
         """
-        self.chromosome = np.random.choice([0, 1], size=m)
-        self.precision = precision
-        self.var_bounds = var_bounds
-        self.fitness = None  # wartość funkcji (lub ocena)
+        i, j = np.random.choice(self.genes_size, 2, replace=False)
+        self.genes[i] = self.genes[i] ^ 1
+        self.genes[j] = self.genes[j] ^ 1
 
-    def decode(self):
+    def mutate_boundary(self):
         """
-        Z binarnej reprezentacji odczytujemy rzeczywiste wartości zmiennych.
-        Zakładamy np., że 1 zmienna = kilkanaście bitów i mamy N zmiennych.
+        Mutacja brzegowa
         """
-        # Przykład: załóżmy, że mamy stałą liczbę bitów per zmienna
-        # i znamy liczbę zmiennych na podstawie var_bounds.
-        decoded_values = []
-        bits_per_var = int(len(self.chromosome) / len(self.var_bounds))
+        i = np.random.randint(self.genes_size)
+        if i < self.size:
+            self.genes[0] = self.genes[0] ^ 1
+        else:
+            self.genes[-1] = self.genes[-1] ^ 1
+    
+    def inversion(self):
+        """
+        Inwersja
+        """
+        i, j = np.random.choice(self.genes_size, 2, replace=False)
+        if i > j:
+            i, j = j, i
+        for k in range((j-i)//2):
+            self.genes[i+k], self.genes[j-k-1] = self.genes[j-k-1], self.genes[i+k]    
+
+    def decode(self, var_bounds):
+        genes = np.split(self.genes, self.vars_number)
+        return [self.decode_gene(gene, var_bounds) for gene in genes]
         
-        for i, bounds in enumerate(self.var_bounds):
-            min_val, max_val = bounds
-            # Wydziel fragment chromosomu dla zmiennej i
-            var_bits = self.chromosome[i*bits_per_var:(i+1)*bits_per_var]
-            # Zamiana binarnych bitów na liczbę całkowitą
-            int_val = 0
-            for bit in var_bits:
-                int_val = (int_val << 1) | bit
-            # Normalizacja do zakresu
-            # np. mapujemy [0, (2^bits_per_var)-1] -> [min_val, max_val]
-            max_int = (1 << bits_per_var) - 1  # 2^bits_per_var - 1
-            real_val = min_val + (max_val - min_val) * (int_val / max_int)
-            decoded_values.append(real_val)
+    def decode_gene(self, gene, var_bounds):
+        return var_bounds[0] + int("".join(map(str, gene)), 2) * (var_bounds[1] - var_bounds[0]) / (2**self.size - 1)
 
-        return np.array(decoded_values, dtype=float)
+    def evaluate(self, objective_function, var_bounds):
+        self.fitness = objective_function(self.decode(var_bounds))
+
+
+
+def func(x):
+    return x[0] + x[1]
+
+if __name__ == "__main__":
+    ind = Individual(3, 2)
+
+    print(ind.genes)
+    ind.inversion()
+    print(ind.genes)

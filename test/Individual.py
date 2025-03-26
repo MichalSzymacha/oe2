@@ -5,8 +5,7 @@ import numpy.typing as npt
 
 """
 TODO:
--dodanie metod mutacji
--sprawdzenie inwersji
+
 -dodanie strategii elitarnej
 algorytm genetyczny - zaimpelmentować samo wykonanie 
 """
@@ -24,12 +23,30 @@ class Individual:
         else:
             self.genes = np.random.choice([0, 1], size=self.genes_size)
 
-    def mutate(self):
+    def mutate_one_point(self):
             """
             Mutacja pojedynczego bitu
             """
             i = np.random.randint(self.genes_size)
             self.genes[i] = self.genes[i] ^ 1
+    
+    def mutate_two_point(self):
+        """
+        Mutacja dwóch punktów
+        """
+        i, j = np.random.choice(self.genes_size, 2, replace=False)
+        self.genes[i] = self.genes[i] ^ 1
+        self.genes[j] = self.genes[j] ^ 1
+
+    def mutate_boundary(self):
+        """
+        Mutacja brzegowa
+        """
+        i = np.random.randint(self.genes_size)
+        if i < self.size:
+            self.genes[0] = self.genes[0] ^ 1
+        else:
+            self.genes[-1] = self.genes[-1] ^ 1
     
     def inversion(self):
         """
@@ -60,6 +77,5 @@ if __name__ == "__main__":
     ind = Individual(3, 2)
 
     print(ind.genes)
-    print(ind.decode((0, 7)))
-    ind.evaluate(func, (0, 7))
-    print(ind.fitness)
+    ind.inversion()
+    print(ind.genes)

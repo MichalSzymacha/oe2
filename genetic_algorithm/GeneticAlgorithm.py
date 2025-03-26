@@ -1,8 +1,9 @@
 import random
 import numpy as np
 from typing import Callable, List, Tuple
-from Population import Population
-from Individual import Individual
+from genetic_algorithm.Population import Population
+from genetic_algorithm.Individual import Individual
+from utils.file_saver import save_results_to_csv, clear_file
 
 class GeneticAlgorithm:
     def __init__(
@@ -89,7 +90,8 @@ class GeneticAlgorithm:
         else:
             self.population.evaluate(self.objective_function)
             for inv in self.population.population:
-                inv.fitness = -inv.fitness
+                inv.fitness = 1/(1+inv.fitness)
+
 
     def _selection(self) -> list:
         """
@@ -195,7 +197,7 @@ class GeneticAlgorithm:
         """
         Główna pętla – uruchamia algorytm na 'epochs' epok.
         """
-    
+        clear_file("wyniki.csv")
         for epoch in range(self.epochs):
             new_population = []
             self._elite(new_population)
@@ -214,22 +216,25 @@ class GeneticAlgorithm:
                 new_population = new_population[:self.pop_size]
             self.population.population = new_population
             self._evaluate()
-            print(f"Epoch {epoch+1} best fitness: {max([ind.fitness for ind in self.population.population])}")
+            best_individual = max(self.population.population, key=lambda x: x.fitness)
+            mean = np.mean([ind.fitness for ind in self.population.population])
+            std = np.std([ind.fitness for ind in self.population.population])
+            save_results_to_csv("wyniki.csv", epoch, best_individual.fitness, mean, std)
         
         best_individual = max(self.population.population, key=lambda x: x.fitness)
         print(f"Best individual: {best_individual.genes}, fitness: {best_individual.fitness}")
-        print(f"Best individual decoded: {best_individual.decode(self.var_bounds)}")
+        return best_individual.decode(self.var_bounds)
         
 if __name__ == '__main__':
     def func(x):
         return x[0] + x[1]
 
     ga = GeneticAlgorithm(
-        var_bounds=(0, 7),
+        var_bounds=(0, 300),
         precision=3,
         vars_number=2,
         pop_size=10,
-        epochs=10,
+        epochs=100,
         selection_method="best",
         selection_percentage=0.5,
         tournament_size=3,

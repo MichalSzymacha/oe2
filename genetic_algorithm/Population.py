@@ -3,11 +3,12 @@ from genetic_algorithm.Individual import Individual
 import math
 import numpy as np
 
+# from Individual import Individual
+
 class Population:
     def __init__(
             self,
             var_bounds: Tuple[float, float],
-            precision: float,
             vars_number: int,
             pop_size: int,
             ):
@@ -18,79 +19,80 @@ class Population:
         :param pop_size: rozmiar populacji"
         """
         self.var_bounds = var_bounds
-        self.precision = precision
         self.vars_number = vars_number
-        self.size = self.compute_gene_size()
-        self.genes_size = self.size * self.vars_number
-        self.population = [Individual(self.size, self.vars_number) for _ in range(pop_size)]
+        self.population = [Individual(self.var_bounds, self.vars_number) for _ in range(pop_size)]
 
-    def compute_gene_size(self) -> int:
-        """
-        Oblicza długość chromosomu dla pojedynczej zmiennej
-        """
-        p = self.convert_precision_to_int()
-        num_of_steps = (self.var_bounds[1] - self.var_bounds[0]) * 10**p + 1
-        size = math.ceil(math.log2(num_of_steps))
-        return size
+    def __str__(self) -> str:
+        for ind in self.population:
+            print(ind)
+        return ""
     
-    def convert_precision_to_int(self) -> int:
-        """
-        Zmienia precyzję dla całej populacji
-        """
-        p = 0
-        local_precision = self.precision
-        while local_precision < 1.0:
-            local_precision *= 10
-            p += 1
-        return p
-    
-    def crossover_one_point(self, individual: Individual, other_individual: Individual):
-        """
-        Krzyżowanie jednopunktowe
-        """
-        i = np.random.randint(self.size * self.vars_number)
-        return (Individual(self.size, self.vars_number, genes=np.concatenate((individual.genes[:i], other_individual.genes[i:]))),
-                Individual(self.size, self.vars_number, genes=np.concatenate((other_individual.genes[:i], individual.genes[i:]))))
-
-    def crossover_two_point(self, individual: Individual, other_individual: Individual):        
-        """
-        Krzyżowanie dwupunktowe
-        """
-        i, j = np.random.choice(self.genes_size, 2, replace=False)
-        if i > j:
-            i, j = j, i
-        return (Individual(self.size, self.vars_number, genes=np.concatenate((individual.genes[:i], other_individual.genes[i:j], individual.genes[j:]))),
-                Individual(self.size, self.vars_number, genes=np.concatenate((other_individual.genes[:i], individual.genes[i:j], other_individual.genes[j:]))))
-    
-    def crossover_uniform(self, individual: Individual, other_individual: Individual, crossover_prob: float):
-        """
-        Krzyżowanie jednorodne
-        """
-        genes1, genes2 = individual.genes, other_individual.genes
-        for i in range(self.genes_size):
-            if np.random.rand() < crossover_prob:
-                genes1[i], genes2[i] = genes2[i], genes1[i]
-        return (Individual(self.size, self.vars_number, genes=genes1),
-                Individual(self.size, self.vars_number, genes=genes2))
-
-                
-    def crossover_grain(self, individual: Individual, other_individual: Individual, crossover_prob: float, grain_size: int = 2):
-        """
-        Krzyżowanie ziarniste
-        """
-        genes1, genes2 = individual.genes, other_individual.genes
-        for i in range(0, self.genes_size, grain_size):
-            if np.random.rand() < crossover_prob:
-                genes1[i:i + grain_size], genes2[i:i + grain_size] = genes2[i:i + grain_size], genes1[i:i + grain_size]
-        return (Individual(self.size, self.vars_number, genes=genes1),
-                Individual(self.size, self.vars_number, genes=genes2))
+    def crossover_arithmetical(self, individual: Individual, other_individual: Individual):
+        a = np.random.uniform(0, 1)
+        b = 1 - a
+        child1 = a * individual.genes + b * other_individual.genes
+        child2 = b * individual.genes + a * other_individual.genes
+        if np.any(child1 < self.var_bounds[0]) or np.any(child1 > self.var_bounds[1]) or np.any(child2 < self.var_bounds[0]) or np.any(child2 > self.var_bounds[1]):
+            return
+        return (Individual(self.var_bounds, self.vars_number, child1),
+                Individual(self.var_bounds, self.vars_number, child2))
+        
+    def crossover_linear(self, individual: Individual, other_individual: Individual):
+        child1 = 0.5*(individual.genes + other_individual.genes)
+        child2 = 1.5*individual.genes - 0.5*other_individual.genes
+        child3 = -0.5*individual.genes + 1.5*other_individual.genes
+        
+        if np.any(child1 < self.var_bounds[0]) or np.any(child1 > self.var_bounds[1]) or np.any(child2 < self.var_bounds[0]) or np.any(child2 > self.var_bounds[1]) or np.any(child3 < self.var_bounds[0]) or np.any(child3 > self.var_bounds[1]):
+            return
+        
+        Z = Individual(self.var_bounds, self.vars_number, child1)
+        V = Individual(self.var_bounds, self.vars_number, child2)
+        W = Individual(self.var_bounds, self.vars_number, child3)
+        children = [Z, V, W]
+        for child in children:
+            child.evaluate(func)
+        children.sort(key=lambda x: x.fitness, reverse=True)
+        return (children[0], children[1])
+        
+    def crossover_blendalpha(self, individual: Individual, other_individual: Individual):
+        a = np.random.uniform(0, 1)
+        d = abs(individual.genes - other_individual.genes)
+        min_array = np.minimum(individual.genes, other_individual.genes) - a*d
+        max_array = np.maximum(individual.genes, other_individual.genes) + a*d
+        child1 = np.random.uniform(min_array, max_array)
+        child2 = np.random.uniform(min_array, max_array)
+        if np.any(child1 < self.var_bounds[0]) or np.any(child1 > self.var_bounds[1]) or np.any(child2 < self.var_bounds[0]) or np.any(child2 > self.var_bounds[1]):
+            return
+        return (Individual(self.var_bounds, self.vars_number, child1),
+                Individual(self.var_bounds, self.vars_number, child2))
+        
+    def crossover_blendalphabeta(self, individual: Individual, other_individual: Individual):
+        a = np.random.uniform(0, 1)
+        b = np.random.uniform(0, 1)
+        d = abs(individual.genes - other_individual.genes)
+        min_array = np.minimum(individual.genes, other_individual.genes) - a*d
+        max_array = np.maximum(individual.genes, other_individual.genes) + b*d
+        child1 = np.random.uniform(min_array, max_array)
+        child2 = np.random.uniform(min_array, max_array)
+        if np.any(child1 < self.var_bounds[0]) or np.any(child1 > self.var_bounds[1]) or np.any(child2 < self.var_bounds[0]) or np.any(child2 > self.var_bounds[1]):
+            return
+        return (Individual(self.var_bounds, self.vars_number, child1),
+                Individual(self.var_bounds, self.vars_number, child2))
+        
+    def crossover_average(self, individual: Individual, other_individual: Individual):
+        child = 0.5*(individual.genes + other_individual.genes)
+        if np.any(child < self.var_bounds[0]) or np.any(child > self.var_bounds[1]):
+            return
+        return [Individual(self.var_bounds, self.vars_number, child)]
+        
+        
     
     def evaluate(self, objective_function: Callable[[List[float]], float]):
         """
         Ocena populacji
         """
         for individual in self.population:
-            individual.evaluate(objective_function, self.var_bounds)
+            individual.evaluate(objective_function)
 
     
 
@@ -98,9 +100,12 @@ def func(x):
     return x[0] + x[1]
 
 if __name__ == "__main__":
-    var_bounds = (0, 31)
-    pop = Population(var_bounds, 1, 2, 10)
+    var_bounds = (-1, 1)
+    pop = Population(var_bounds, 3, 2)
     # for ind in pop.population:
     #     print(ind.decode(var_bounds))
+    print(pop)
+    pop2 = pop.crossover_average(pop.population[0], pop.population[1])
+    print(pop2[0])
 
-    pop.evaluate(func)
+    

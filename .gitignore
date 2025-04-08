@@ -1,0 +1,13 @@
+__pycache__
+__pycache__/*
+/__pycache__/*
+*.pyc
+temp*
+.venv
+*pycache*
+results
+results/*
+.DS_Store
+/ackley_results
+/cec2014_f5_results
+*pyc

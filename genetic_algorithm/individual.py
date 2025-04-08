@@ -11,71 +11,43 @@ algorytm genetyczny - zaimpelmentować samo wykonanie
 """
 
 class Individual:
-    def __init__(self, size : int, vars_number : int, genes : npt.NDArray[np.int32] = None):
-        self.size = size
+    def __init__(self, var_bounds : Tuple[float, float], vars_number : int, genes : npt.NDArray[np.float64] = None):
+        self.var_bounds = var_bounds
         self.vars_number = vars_number
-        self.genes_size = size * vars_number
         self.fitness = None
         if genes is not None:
+            if len(genes) != self.vars_number:
+                raise ValueError(f"Genes size should be {self.vars_number}, but got {len(genes)}")
+            if np.any(genes < var_bounds[0]) or np.any(genes > var_bounds[1]):
+                raise ValueError(f"Genes should be in range {var_bounds}, but got {genes}")
             self.genes = genes
-            if len(genes) != self.genes_size:
-                raise ValueError(f"Genes size should be {self.genes_size}, but got {len(genes)}")
         else:
-            self.genes = np.random.choice([0, 1], size=self.genes_size)
+            self.genes = np.random.uniform(low = var_bounds[0], high = var_bounds[1], size = self.vars_number)
 
-    def mutate_one_point(self):
-            """
-            Mutacja pojedynczego bitu
-            """
-            i = np.random.randint(self.genes_size)
-            self.genes[i] = self.genes[i] ^ 1
-    
-    def mutate_two_point(self):
-        """
-        Mutacja dwóch punktów
-        """
-        i, j = np.random.choice(self.genes_size, 2, replace=False)
-        self.genes[i] = self.genes[i] ^ 1
-        self.genes[j] = self.genes[j] ^ 1
+    def __str__(self):
+        return f"Genes: {self.genes}, Fitness: {self.fitness}"
 
-    def mutate_boundary(self):
-        """
-        Mutacja brzegowa
-        """
-        i = np.random.randint(self.genes_size)
-        if i < self.size:
-            self.genes[0] = self.genes[0] ^ 1
-        else:
-            self.genes[-1] = self.genes[-1] ^ 1
-    
-    def inversion(self):
-        """
-        Inwersja
-        """
-        i, j = np.random.choice(self.genes_size, 2, replace=False)
-        if i > j:
-            i, j = j, i
-        for k in range((j-i)//2):
-            self.genes[i+k], self.genes[j-k-1] = self.genes[j-k-1], self.genes[i+k]    
-
-    def decode(self, var_bounds):
-        genes = np.split(self.genes, self.vars_number)
-        return [self.decode_gene(gene, var_bounds) for gene in genes]
+    def evaluate(self, objective_function):
+        self.objective_value = objective_function(self.genes)
+        self.fitness = self.objective_value
         
-    def decode_gene(self, gene, var_bounds):
-        return var_bounds[0] + int("".join(map(str, gene)), 2) * (var_bounds[1] - var_bounds[0]) / (2**self.size - 1)
+    def mutate_uniform(self):
+        index = np.random.randint(0, self.vars_number)
+        mutation_value = np.random.uniform(self.var_bounds[0], self.var_bounds[1])
+        self.genes[index] = mutation_value
 
-    def evaluate(self, objective_function, var_bounds):
-        self.fitness = objective_function(self.decode(var_bounds))
-
-
+    def mutate_gaussian(self):
+        scale_range = (self.var_bounds[0] + self.var_bounds[1])
+        mutation_value = np.random.normal(0, scale = scale_range*0.1, size = self.vars_number)
+        self.genes += mutation_value
+        np.clip(self.genes, self.var_bounds[0], self.var_bounds[1], out = self.genes)
+       
 
 def func(x):
     return x[0] + x[1]
 
 if __name__ == "__main__":
-    ind = Individual(3, 2)
-
-    print(ind.genes)
-    ind.inversion()
-    print(ind.genes)
+    ind = Individual((5, 10), 5)
+    print(ind)
+    ind.mutate_gaussian()
+    print(ind)

@@ -1,0 +1,20 @@
+{
+    "var_bounds": [
+        -32.0,
+        32.0
+    ],
+    "vars_number": 10,
+    "pop_size": 500,
+    "epochs": 500,
+    "selection_method": "best",
+    "selection_percentage": 0.5,
+    "tournament_size": 5,
+    "crossover_method": "arithmetical",
+    "crossover_prob": 0.5,
+    "mutation_method": "uniform",
+    "mutation_prob": 0.3,
+    "elite_percentage": 0.01,
+    "objective_function": "<benchmark_functions.benchmark_functions.Ackley object at 0x000002297196E150>",
+    "maximize": false,
+    "population": ""
+}

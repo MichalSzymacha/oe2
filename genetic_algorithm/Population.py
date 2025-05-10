@@ -1,5 +1,5 @@
 from typing import Callable, List, Tuple
-from genetic_algorithm.Individual import Individual
+from genetic_algorithm.individual import Individual
 import math
 import numpy as np
 

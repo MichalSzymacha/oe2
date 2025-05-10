@@ -1,19 +1,18 @@
-import multiprocessing
 import hashlib
 import json
+import multiprocessing
 import os
 import threading
+import time
 import tkinter as tk
 from tkinter import ttk
-import numpy as np
-import time
-from genetic_algorithm.GeneticAlgorithm import GeneticAlgorithm
+
 from functions.function_selector import (
     get_function_by_name,
-    get_suggested_bounds,
     FUNCTIONS_MAP,
 )
-from utils.file_saver import save_results_to_csv, save_results_to_json
+from genetic_algorithm.GeneticAlgorithm import GeneticAlgorithm
+from utils.file_saver import save_results_to_json
 from utils.plotter import plot_iterations, plot_mean_std
 
 

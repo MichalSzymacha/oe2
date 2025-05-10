@@ -1,11 +1,13 @@
 import copy
 import os
 import random
-import numpy as np
 from typing import Callable, List, Tuple
+
+import numpy as np
+
 from genetic_algorithm.Population import Population
-from genetic_algorithm.Individual import Individual
 from utils.file_saver import save_results_to_csv, clear_file, save_results_to_json
+
 
 # from Population import Population
 # from Individual import Individual
